@@ -15,13 +15,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
-      - run: pip install -r requirements-dev.txt
-      - run: ruff check .
-      - run: pytest test_main.py -v --tb=short
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest test_main.py -v --tb=short
 
   docker:
     runs-on: ubuntu-latest
@@ -47,8 +55,11 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -56,14 +67,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Update GitOps repo
+      - name: Update GitOps image tag
+        if: success() && github.event_name != 'pull_request'
+        env:
+          GITOPS_PAT: ${{ secrets.GITOPS_PAT }}
         run: |
-          git clone https://x-access-token:${{ secrets.GITOPS_PAT }}@github.com/red512/krai-gitops.git /tmp/krai-gitops
-          cd /tmp/krai-gitops
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          git clone https://x-access-token:${GITOPS_PAT}@github.com/red512/krai-gitops.git /tmp/krai-gitops
+          cd /tmp/krai-gitops
           sed -i "s|tag:.*|tag: \"${SHORT_SHA}\"|" helm/krai-helm-chart/values.yaml
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "chore: update image tag to ${SHORT_SHA}" || echo "No changes"
+          git add helm/krai-helm-chart/values.yaml
+          git commit -m "chore: update krai image tag to ${SHORT_SHA}"
           git push
