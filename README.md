@@ -139,7 +139,7 @@ terraform apply -var="project_id=YOUR_PROJECT"
 | **krai** | Backend API + worker (FastAPI, Python) |
 | **krai-frontend** | React frontend |
 | **krai-gitops** | Helm charts + ArgoCD manifests (backend, frontend, KEDA) |
-| **krai-terraform** | Terraform IaC (GKE, VPC, IAM, GCS, Pub/Sub, Firestore, Artifact Registry) |
+| **krai-terraform** | Terraform IaC (GKE, VPC, IAM, GCS, Pub/Sub, Firestore, Artifact Registry, GitHub OIDC) |
 
 ## GKE Namespace Layout
 
@@ -148,6 +148,34 @@ keda namespace:           KEDA operator + metrics server
 krai-backend namespace:   API pods + Worker pods (KEDA-scaled) + LoadBalancer Service
 krai-frontend namespace:  React pods + LoadBalancer Service
 ```
+
+## CI/CD Pipeline
+
+Each repo has its own GitHub Actions workflows:
+
+| Repo | CI (`test.yaml`) | CD (`publish.yaml`) |
+|------|-------------------|---------------------|
+| **krai-backend** | Lint (ruff) → Test (pytest) → Grype scan | Docker build → Push to Artifact Registry → Update image tag in krai-gitops |
+| **krai-frontend** | Build → Grype scan | Docker build → Push to Artifact Registry → Update image tag in krai-gitops |
+| **krai-terraform** | Checkov IaC security scan | — |
+| **krai-gitops** | — (ArgoCD auto-syncs on push) | — |
+
+GitHub Actions authenticates to GCP via **Workload Identity Federation** (OIDC) — no static credentials. Terraform provisions the identity pool, provider, and a dedicated `github-actions` service account with `artifactregistry.writer` role only.
+
+### GitHub Secrets Required
+
+Set these on both `krai-backend` and `krai-frontend` repos:
+
+| Secret | Source |
+|--------|--------|
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `terraform output gcp_workload_identity_provider` |
+| `GCP_SERVICE_ACCOUNT` | `terraform output github_actions_service_account` |
+| `GCP_PROJECT_ID` | Your GCP project ID |
+| `GITOPS_PAT` | GitHub PAT with `repo` scope for krai-gitops |
+
+### Image Tagging Strategy
+
+Each push to `main` builds a Docker image tagged with the **short git SHA** and `latest`. The CD pipeline updates the Helm values in krai-gitops with the SHA tag. ArgoCD detects the commit and deploys the new image. Using SHA (not `latest`) ensures Kubernetes always pulls the correct version and provides an audit trail for rollbacks.
 
 ## Testing
 
@@ -163,12 +191,14 @@ ruff check .
 - Rate limiting (100 req/15 min)
 - Signed URLs with 15-min TTL
 - Non-root container, read-only filesystem, drop all capabilities
-- Workload Identity (no static GCP credentials)
+- Workload Identity for GKE pods (no static GCP credentials)
+- Workload Identity Federation for CI/CD (GitHub OIDC, no static GCP credentials)
+- Separate service accounts: `krai-app` (application) and `github-actions` (CI/CD, `artifactregistry.writer` only)
 - Private GCS bucket with uniform access control
 
 ## Production Hardening
 
-This project uses simple LoadBalancer Services for demo purposes. For a production deployment, the following changes would be made:
+This is a demo project. To keep costs low, the GKE cluster runs in a **single zone** (`us-central1-a`) with **Spot instances** (`e2-medium`). For a production deployment, the following changes would be made:
 
 | Area | Current (Demo) | Production |
 |------|----------------|------------|
@@ -181,5 +211,5 @@ This project uses simple LoadBalancer Services for demo purposes. For a producti
 | **Observability** | Stdout logs only | Structured logging → Cloud Logging, metrics → Cloud Monitoring / Prometheus, distributed tracing via OpenTelemetry |
 | **CI/CD** | Grype scan only | Add SAST (Semgrep), container signing (Cosign), SBOM generation, policy-as-code (OPA/Gatekeeper) |
 | **Data** | Single-region Firestore + GCS | Multi-region Firestore, dual-region GCS, cross-region GKE for HA |
-| **Node pool** | Preemptible `e2-medium` | Spot instances for workers, on-demand for API pods, separate node pools per workload |
+| **GKE topology** | Zonal cluster, Spot `e2-medium`, single shared node pool | Regional cluster for HA, on-demand nodes for API pods, Spot for workers, separate node pools per workload |
 # krai

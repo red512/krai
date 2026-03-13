@@ -10,6 +10,7 @@ import sys
 import time
 
 from dotenv import load_dotenv
+from google.cloud import firestore, pubsub_v1, storage
 
 load_dotenv()
 
@@ -21,8 +22,6 @@ if not GOOGLE_CLOUD_PROJECT:
     print("[worker] GOOGLE_CLOUD_PROJECT not set. Worker requires GCP credentials.")
     print("[worker] For local development, the API server handles jobs inline.")
     sys.exit(1)
-
-from google.cloud import firestore, pubsub_v1, storage
 
 storage_client = storage.Client()
 bucket = storage_client.bucket(GCS_BUCKET)
@@ -140,7 +139,7 @@ def callback(message):
         message.nack()
 
 
-def shutdown(signum, frame):
+def shutdown(_signum, _frame):
     global running
     print("[worker] Shutting down gracefully...")
     running = False

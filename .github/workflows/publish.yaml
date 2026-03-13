@@ -50,7 +50,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/krai/krai
+          images: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/krai/krai-backend
           tags: |
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
