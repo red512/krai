@@ -2,6 +2,10 @@
 
 Async export/import API built with FastAPI + React frontend, deployed on GKE with Pub/Sub, GCS, and Firestore.
 
+![Google Sign-In](media/krai_signin.jpg)
+
+![Dashboard](media/ui.jpg)
+
 ## Architecture
 
 ### Infrastructure Overview
@@ -150,6 +154,8 @@ sequenceDiagram
 | **Signed URLs** | API server never buffers 1-100MB files |
 | **Pub/Sub** | Decouples API from workers, natural backpressure |
 | **Firestore** | Serverless job tracking, no schema migrations |
+
+![Firestore Job Data](media/pub_sub.jpg)
 | **GKE + HPA** | Auto-scales API pods on CPU |
 | **KEDA** | Scales worker pods based on Pub/Sub queue depth (messages per worker) instead of CPU |
 | **Workload Identity** | No static credentials (GCP's IRSA equivalent) |
@@ -217,6 +223,8 @@ terraform apply -var="project_id=YOUR_PROJECT" -var="api_key=YOUR_API_KEY"
 #    - krai-frontend-chart  → krai-frontend namespace
 ```
 
+![ArgoCD Applications](media/argo.jpg)
+
 ## Multi-Repo Layout
 
 | Repo | Purpose |
@@ -245,6 +253,10 @@ Each repo has its own GitHub Actions workflows:
 | **krai-frontend** | Build → Grype scan → Slack | Docker build → Push to Artifact Registry → Update image tag in krai-gitops → Slack |
 | **krai-terraform** | Checkov IaC security scan → Slack (`checkov.yaml`) | — |
 | **krai-gitops** | — (ArgoCD auto-syncs on push) | — |
+
+![Slack Notifications](media/skack_notification.jpg)
+
+![Grype CVE Scan](media/grype_cve_examples.jpg)
 
 GitHub Actions authenticates to GCP via **Workload Identity Federation** (OIDC) — no static credentials. Terraform provisions the identity pool, provider, and a dedicated `github-actions` service account with `artifactregistry.writer` role only.
 
@@ -325,4 +337,3 @@ This is a demo project. To keep costs low, the GKE cluster runs in a **single zo
 | **CI/CD** | Grype scan only | Add SAST (Semgrep), container signing (Cosign), SBOM generation, policy-as-code (OPA/Gatekeeper) |
 | **Data** | Single-region Firestore + GCS | Multi-region Firestore, dual-region GCS, cross-region GKE for HA |
 | **GKE topology** | Zonal cluster, Spot `e2-medium`, single shared node pool | Regional cluster for HA, on-demand nodes for API pods, Spot for workers, separate node pools per workload |
-# krai
