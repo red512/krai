@@ -248,6 +248,15 @@ except ImportError:
     google_auth_requests = None
 
 
+def _is_email_allowed(email: str) -> bool:
+    """Check if email is in the allowed_emails Firestore collection."""
+    if USE_GCP:
+        doc = firestore_client.collection("allowed_emails").document(email).get()
+        return doc.exists
+    # In local mock mode, allow all emails
+    return True
+
+
 async def verify_auth(
     x_api_key: str = Header(default=None),
     authorization: str = Header(default=None),
@@ -271,6 +280,9 @@ async def verify_auth(
             idinfo = google_id_token.verify_oauth2_token(
                 token, google_auth_requests.Request(), GOOGLE_CLIENT_ID
             )
+            email = idinfo.get("email", "")
+            if not _is_email_allowed(email):
+                raise HTTPException(status_code=403, detail=f"User {email} is not authorized")
             return idinfo
         except ValueError as e:
             raise HTTPException(status_code=403, detail=f"Invalid Google token: {e}")
