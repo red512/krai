@@ -4,7 +4,7 @@ Async export/import API built with FastAPI + React frontend, deployed on GKE wit
 
 <img src="media/krai_signin.jpg" alt="Google Sign-In" width="400">
 
-![Dashboard](media/ui.jpg)
+![Dashboard](media/ui1.jpg)
 
 ## Architecture
 
