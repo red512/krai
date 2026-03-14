@@ -243,7 +243,7 @@ Each repo has its own GitHub Actions workflows:
 |------|----------------|----------------|
 | **krai-backend** | Lint (ruff) → Test (pytest) → Grype scan → Slack | Docker build → Push to Artifact Registry → Update image tag in krai-gitops → Slack |
 | **krai-frontend** | Build → Grype scan → Slack | Docker build → Push to Artifact Registry → Update image tag in krai-gitops → Slack |
-| **krai-terraform** | Checkov IaC security scan → Slack | — |
+| **krai-terraform** | Checkov IaC security scan → Slack (`checkov.yaml`) | — |
 | **krai-gitops** | — (ArgoCD auto-syncs on push) | — |
 
 GitHub Actions authenticates to GCP via **Workload Identity Federation** (OIDC) — no static credentials. Terraform provisions the identity pool, provider, and a dedicated `github-actions` service account with `artifactregistry.writer` role only.
