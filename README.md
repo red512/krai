@@ -6,6 +6,25 @@ Async export/import API built with FastAPI + React frontend, deployed on GKE wit
 
 ![Dashboard](media/ui1.jpg)
 
+## Directory Structure
+
+```
+krai/
+├── .github/workflows/
+│   ├── ci.yaml                # Lint (ruff) → Test (pytest) → Grype scan → Slack
+│   └── cd.yaml                # Docker build → Artifact Registry → update krai-gitops → Slack
+├── main.py                    # FastAPI API server (exports, imports, job status)
+├── worker.py                  # Pub/Sub pull subscriber (processes jobs)
+├── test_main.py               # Unit + integration tests (TestClient, mock mode)
+├── scripts/
+│   ├── test-api.sh            # E2E test script
+│   └── manage-users.sh        # Firestore email allowlist management
+├── requirements.txt           # Production dependencies
+├── requirements-dev.txt       # Dev dependencies (pytest, ruff)
+├── Dockerfile                 # Python 3.12-slim, non-root krai user
+└── media/                     # Screenshots for README
+```
+
 ## Architecture
 
 ### Infrastructure Overview
