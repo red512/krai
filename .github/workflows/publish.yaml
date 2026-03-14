@@ -87,3 +87,18 @@ jobs:
           git add helm/krai-helm-chart/values.yaml
           git commit -m "chore: update krai image tag to ${SHORT_SHA}"
           git push
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, docker]
+    if: always()
+    steps:
+      - name: Slack notification
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "${{ needs.docker.result == 'success' && ':white_check_mark:' || ':x:' }} *krai-backend* publish `${{ github.sha }}` — ${{ needs.docker.result }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }

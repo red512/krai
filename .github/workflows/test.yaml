@@ -43,3 +43,18 @@ jobs:
           image: krai:test
           fail-build: true
           severity-cutoff: medium
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: failure()
+    steps:
+      - name: Slack notification
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":x: *krai-backend* CI failed on `${{ github.ref_name }}`\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
