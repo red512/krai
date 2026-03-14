@@ -1,6 +1,7 @@
 """Tests for krai API server."""
 
 import pytest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 # Force local mock mode
@@ -8,6 +9,7 @@ import os
 os.environ["API_KEY"] = "test-key"
 os.environ["GCS_BUCKET"] = ""
 os.environ["GOOGLE_CLOUD_PROJECT"] = ""
+os.environ["GOOGLE_CLIENT_ID"] = ""
 os.environ["PORT"] = "8099"
 
 from main import app, jobs_store, mock_files
@@ -40,7 +42,7 @@ class TestHealth:
 # Auth
 # ---------------------------------------------------------------------------
 class TestAuth:
-    def test_missing_api_key(self):
+    def test_no_auth(self):
         resp = client.post("/api/v1/exports", json={"dataset": "test"})
         assert resp.status_code == 401
 
@@ -49,6 +51,49 @@ class TestAuth:
             "/api/v1/exports",
             json={"dataset": "test"},
             headers={"x-api-key": "wrong-key"},
+        )
+        assert resp.status_code == 403
+
+    def test_invalid_bearer_format(self):
+        resp = client.post(
+            "/api/v1/exports",
+            json={"dataset": "test"},
+            headers={"Authorization": "Token abc123"},
+        )
+        assert resp.status_code == 401
+
+    def test_bearer_without_client_id(self):
+        """Bearer token fails when GOOGLE_CLIENT_ID is not configured."""
+        resp = client.post(
+            "/api/v1/exports",
+            json={"dataset": "test"},
+            headers={"Authorization": "Bearer some-token"},
+        )
+        assert resp.status_code == 500
+        assert "not configured" in resp.json()["detail"]
+
+    @patch("main.GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
+    @patch("main.google_id_token")
+    def test_valid_bearer_token(self, mock_id_token):
+        mock_id_token.verify_oauth2_token.return_value = {
+            "sub": "12345",
+            "email": "user@example.com",
+        }
+        resp = client.post(
+            "/api/v1/exports",
+            json={"dataset": "test"},
+            headers={"Authorization": "Bearer valid-google-token"},
+        )
+        assert resp.status_code == 202
+
+    @patch("main.GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
+    @patch("main.google_id_token")
+    def test_invalid_bearer_token(self, mock_id_token):
+        mock_id_token.verify_oauth2_token.side_effect = ValueError("Invalid token")
+        resp = client.post(
+            "/api/v1/exports",
+            json={"dataset": "test"},
+            headers={"Authorization": "Bearer invalid-token"},
         )
         assert resp.status_code == 403
 

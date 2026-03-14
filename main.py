@@ -25,6 +25,7 @@ load_dotenv()
 # Config
 # ---------------------------------------------------------------------------
 API_KEY = os.getenv("API_KEY", "demo-key-change-me")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GCS_BUCKET = os.getenv("GCS_BUCKET", "")
 GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 PUBSUB_TOPIC = os.getenv("PUBSUB_TOPIC", "krai-jobs")
@@ -239,12 +240,42 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Auth dependency
 # ---------------------------------------------------------------------------
-async def verify_api_key(x_api_key: str = Header(default=None)):
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="Missing x-api-key header")
-    if x_api_key != API_KEY:
-        raise HTTPException(status_code=403, detail="Invalid API key")
-    return x_api_key
+try:
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_auth_requests
+except ImportError:
+    google_id_token = None
+    google_auth_requests = None
+
+
+async def verify_auth(
+    x_api_key: str = Header(default=None),
+    authorization: str = Header(default=None),
+):
+    # API key takes priority (backwards compatible with test scripts)
+    if x_api_key:
+        if x_api_key != API_KEY:
+            raise HTTPException(status_code=403, detail="Invalid API key")
+        return x_api_key
+
+    # Bearer token (Google OAuth)
+    if authorization:
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Invalid Authorization header format")
+        token = authorization[7:]
+        if not GOOGLE_CLIENT_ID:
+            raise HTTPException(status_code=500, detail="OAuth not configured on server")
+        if google_id_token is None:
+            raise HTTPException(status_code=500, detail="google-auth library not available")
+        try:
+            idinfo = google_id_token.verify_oauth2_token(
+                token, google_auth_requests.Request(), GOOGLE_CLIENT_ID
+            )
+            return idinfo
+        except ValueError as e:
+            raise HTTPException(status_code=403, detail=f"Invalid Google token: {e}")
+
+    raise HTTPException(status_code=401, detail="Missing authentication")
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +304,7 @@ async def healthz():
 # ---------------------------------------------------------------------------
 # Export endpoint
 # ---------------------------------------------------------------------------
-@app.post("/api/v1/exports", status_code=202, dependencies=[Depends(verify_api_key)])
+@app.post("/api/v1/exports", status_code=202, dependencies=[Depends(verify_auth)])
 @limiter.limit("100/15minutes")
 async def create_export(request: Request, body: ExportRequest):
     job_id = str(uuid.uuid4())
@@ -298,7 +329,7 @@ async def create_export(request: Request, body: ExportRequest):
 # ---------------------------------------------------------------------------
 # Import endpoint
 # ---------------------------------------------------------------------------
-@app.post("/api/v1/imports", status_code=202, dependencies=[Depends(verify_api_key)])
+@app.post("/api/v1/imports", status_code=202, dependencies=[Depends(verify_auth)])
 @limiter.limit("100/15minutes")
 async def create_import(request: Request, body: ImportRequest):
     job_id = str(uuid.uuid4())
@@ -323,7 +354,7 @@ async def create_import(request: Request, body: ImportRequest):
 # ---------------------------------------------------------------------------
 # Unified job endpoints
 # ---------------------------------------------------------------------------
-@app.get("/api/v1/jobs/{job_id}", dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/jobs/{job_id}", dependencies=[Depends(verify_auth)])
 async def get_job_status(job_id: str):
     job = get_job(job_id)
     if not job:
@@ -338,7 +369,7 @@ async def get_job_status(job_id: str):
     }
 
 
-@app.get("/api/v1/jobs/{job_id}/result", dependencies=[Depends(verify_api_key)])
+@app.get("/api/v1/jobs/{job_id}/result", dependencies=[Depends(verify_auth)])
 async def get_job_result(job_id: str):
     job = get_job(job_id)
     if not job:

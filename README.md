@@ -189,8 +189,8 @@ ruff check .
 
 - API key authentication on all endpoints
 - Rate limiting (100 req/15 min)
-- Signed URLs with 15-min TTL
-- Non-root container, read-only filesystem, drop all capabilities
+- Signed URLs with 15-min TTL (via IAM signBlob API — compatible with Workload Identity, no SA key needed)
+- Non-root container, read-only filesystem (with `/tmp` emptyDir for GCS client), drop all capabilities
 - Workload Identity for GKE pods (no static GCP credentials)
 - Workload Identity Federation for CI/CD (GitHub OIDC, no static GCP credentials)
 - Separate service accounts: `krai-app` (application) and `github-actions` (CI/CD, `artifactregistry.writer` only)
