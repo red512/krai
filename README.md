@@ -167,9 +167,10 @@ KEDA checks the `krai-jobs-sub` subscription every 15s and calculates: `desired 
 | Messages in queue | Workers | Reason |
 |---|---|---|
 | 0 | 1 | `minReplicaCount` keeps at least 1 worker running |
-| 5 | 1 | 5 / 5 = 1 worker needed |
-| 12 | 3 | 12 / 5 = 2.4, rounds up to 3 |
-| 20+ | 3 | Capped at `maxReplicaCount: 3` |
+| 1–5 | 1 | ≤ 5 / 5 = 1 worker needed |
+| 6–10 | 2 | 6 / 5 = 1.2 → rounds up to 2 |
+| 11–15 | 3 | 11 / 5 = 2.2 → rounds up to 3 |
+| 16+ | 3 | Capped at `maxReplicaCount: 3` |
 | 0 (after burst) | 1 | Scales down after 60s `cooldownPeriod` |
 
 ## Quick Start (Local)
@@ -238,8 +239,8 @@ krai-frontend namespace:    React pods + LoadBalancer Service
 
 Each repo has its own GitHub Actions workflows:
 
-| Repo | CI (`test.yaml`) | CD (`publish.yaml`) |
-|------|-------------------|---------------------|
+| Repo | CI (`ci.yaml`) | CD (`cd.yaml`) |
+|------|----------------|----------------|
 | **krai-backend** | Lint (ruff) → Test (pytest) → Grype scan → Slack | Docker build → Push to Artifact Registry → Update image tag in krai-gitops → Slack |
 | **krai-frontend** | Build → Grype scan → Slack | Docker build → Push to Artifact Registry → Update image tag in krai-gitops → Slack |
 | **krai-terraform** | Checkov IaC security scan → Slack | — |
@@ -266,16 +267,25 @@ Each push to `main` builds a Docker image tagged with the **short git SHA** and 
 ## Testing
 
 ```bash
+# Unit tests + lint
 pip install -r requirements-dev.txt
 pytest test_main.py -v
 ruff check .
+
+# E2E test (requires server running — see Quick Start)
+bash scripts/test-api.sh                                          # local (default: localhost:8080)
+bash scripts/test-api.sh http://localhost:8081 your-api-key       # against GKE via port-forward
 ```
 
 ## User Management
 
-OAuth users must be in the Firestore `allowed_emails` collection:
+When using Google OAuth, the backend checks the user's email against a Firestore `allowed_emails` collection. If the email is not in the collection, the request is rejected with 403. This acts as an allowlist — only explicitly approved users can access the API via OAuth. API key auth bypasses this check.
+
+Manage the allowlist with the provided script (requires `gcloud` auth and `GCP_PROJECT` env var):
 
 ```bash
+export GCP_PROJECT=your-project-id
+
 # Add a user
 bash scripts/manage-users.sh add user@example.com
 
