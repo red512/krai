@@ -93,6 +93,9 @@ jobs:
     needs: [test, docker]
     if: always()
     steps:
+      - name: Short SHA
+        id: sha
+        run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
       - name: Slack notification
         uses: slackapi/slack-github-action@v2.1.0
         with:
@@ -100,5 +103,5 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "${{ needs.docker.result == 'success' && ':white_check_mark:' || ':x:' }} *krai-backend* publish `${{ github.sha }}` — ${{ needs.docker.result }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+              "text": "${{ needs.docker.result == 'success' && ':white_check_mark:' || ':x:' }} *krai-backend* publish `${{ steps.sha.outputs.short }}` — ${{ needs.docker.result }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
             }
