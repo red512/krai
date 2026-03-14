@@ -2,7 +2,7 @@
 
 Async export/import API built with FastAPI + React frontend, deployed on GKE with Pub/Sub, GCS, and Firestore.
 
-![Google Sign-In](media/krai_signin.jpg)
+<img src="media/krai_signin.jpg" alt="Google Sign-In" width="400">
 
 ![Dashboard](media/ui.jpg)
 
@@ -254,7 +254,7 @@ Each repo has its own GitHub Actions workflows:
 | **krai-terraform** | Checkov IaC security scan → Slack (`checkov.yaml`) | — |
 | **krai-gitops** | — (ArgoCD auto-syncs on push) | — |
 
-![Slack Notifications](media/skack_notification.jpg)
+<img src="media/skack_notification.jpg" alt="Slack Notifications" width="500">
 
 ![Grype CVE Scan](media/grype_cve_examples.jpg)
 
