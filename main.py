@@ -112,11 +112,17 @@ def _process_job_locally(data: dict):
 # ---------------------------------------------------------------------------
 def generate_download_url(blob_name: str) -> str:
     if USE_GCP:
+        from google.auth.transport import requests as auth_requests
+
         blob = bucket.blob(blob_name)
+        credentials = storage_client._credentials
+        credentials.refresh(auth_requests.Request())
         return blob.generate_signed_url(
             version="v4",
             expiration=900,  # 15 minutes
             method="GET",
+            service_account_email=credentials.service_account_email,
+            access_token=credentials.token,
         )
     return f"http://localhost:{PORT}/mock-download/{blob_name}"
 

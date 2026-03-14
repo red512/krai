@@ -59,8 +59,20 @@ def generate_mock_csv(size_mb: float = 1.0) -> bytes:
 
 
 def generate_download_url(blob_name: str) -> str:
+    from google.auth.transport import requests as auth_requests
+
     blob = bucket.blob(blob_name)
-    return blob.generate_signed_url(version="v4", expiration=900, method="GET")
+    # Workload Identity provides a token, not a private key.
+    # Pass SA email + access token so the client uses IAM signBlob API instead.
+    credentials = storage_client._credentials
+    credentials.refresh(auth_requests.Request())
+    return blob.generate_signed_url(
+        version="v4",
+        expiration=900,
+        method="GET",
+        service_account_email=credentials.service_account_email,
+        access_token=credentials.token,
+    )
 
 
 def process_export(job_id: str) -> None:
