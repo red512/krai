@@ -43,6 +43,8 @@ jobs:
           image: krai:test
           fail-build: true
           severity-cutoff: medium
+          output-format: table
+          by-cve: true
 
   notify:
     runs-on: ubuntu-latest
