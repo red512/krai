@@ -340,19 +340,3 @@ bash scripts/manage-users.sh list
 - Separate service accounts: `krai-app` (application), `krai-eso` (ESO), `keda-operator` (KEDA), `github-actions` (CI/CD)
 - Private GCS bucket with uniform access control
 
-## Production Hardening
-
-This is a demo project. To keep costs low, the GKE cluster runs in a **single zone** (`us-central1-a`) with **Spot instances** (`e2-medium`). For a production deployment, the following changes would be made:
-
-| Area | Current (Demo) | Production |
-|------|----------------|------------|
-| **Networking** | L4 LoadBalancer Service, plain HTTP | GKE Ingress (L7) with TLS termination, static IP via Terraform, Google-managed SSL certificate |
-| **WAF / DDoS** | In-app rate limiting only | Cloud Armor policy attached to the Ingress for L7 filtering and DDoS protection |
-| **DNS** | Clients hit raw IP | Cloud DNS record pointing to the static Ingress IP |
-| **Auth** | Google OAuth + shared API key with Firestore allowlist | Per-client API keys, OAuth scopes, RBAC |
-| **Secrets** | ESO syncing API key from Secret Manager | Extend ESO to manage all secrets (DB creds, OAuth client secrets) |
-| **GKE cluster** | Public control plane, no authorized networks | Private cluster with authorized networks, Binary Authorization |
-| **Observability** | Stdout logs only | Structured logging → Cloud Logging, metrics → Cloud Monitoring / Prometheus, distributed tracing via OpenTelemetry |
-| **CI/CD** | Grype scan only | Add SAST (Semgrep), container signing (Cosign), SBOM generation, policy-as-code (OPA/Gatekeeper) |
-| **Data** | Single-region Firestore + GCS | Multi-region Firestore, dual-region GCS, cross-region GKE for HA |
-| **GKE topology** | Zonal cluster, Spot `e2-medium`, single shared node pool | Regional cluster for HA, on-demand nodes for API pods, Spot for workers, separate node pools per workload |
