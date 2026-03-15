@@ -40,8 +40,8 @@ graph LR
 
     subgraph GKE Cluster
         FE[React Frontend]
-        API[FastAPI API]
-        Worker[Worker Pods]
+        API[FastAPI API Pod]
+        Worker[Worker Pod]
     end
 
     subgraph GCP
