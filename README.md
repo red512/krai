@@ -27,54 +27,27 @@ krai/
 
 ## Architecture
 
-### Infrastructure Overview
+### Runtime Architecture
 
 ```mermaid
-graph TB
+graph LR
     User([User / Browser])
     Script([Scripts / CI])
 
-    subgraph Google OAuth
-        Google[Google Identity Services]
+    subgraph Auth
+        Google[Google OAuth]
     end
 
     subgraph GKE Cluster
-        subgraph krai-frontend ns
-            FE[React Frontend<br/>HPA]
-        end
-
-        subgraph krai-backend ns
-            API[FastAPI API<br/>HPA]
-            Worker[Worker Pods<br/>KEDA-scaled]
-            ES[ExternalSecret]
-            CSS[ClusterSecretStore]
-            K8sSecret[K8s Secret<br/>krai-secrets]
-        end
-
-        subgraph external-secrets ns
-            ESO[ESO Operator]
-        end
-
-        subgraph keda ns
-            KEDA[KEDA Operator]
-        end
-
-        subgraph argocd ns
-            ArgoCD[ArgoCD]
-        end
+        FE[React Frontend]
+        API[FastAPI API]
+        Worker[Worker Pods]
     end
 
-    subgraph GCP Services
-        SM[Secret Manager]
-        FS[Firestore]
-        PS[Pub/Sub]
-        GCS[Cloud Storage]
-    end
-
-    subgraph GitHub
-        GitOps[krai-gitops]
-        BackendRepo[krai-backend]
-        FrontendRepo[krai-frontend]
+    subgraph GCP
+        FS[(Firestore)]
+        PS[/Pub/Sub/]
+        GCS[(Cloud Storage)]
     end
 
     User -->|Google Sign-In| Google
@@ -85,26 +58,47 @@ graph TB
 
     API -->|Create Job| FS
     API -->|Publish| PS
-    API -->|Verify Token| Google
-    API -->|Check Allowlist| FS
     PS -->|Pull| Worker
-    Worker -->|Upload CSV| GCS
-    Worker -->|Update Job| FS
+    Worker -->|Upload Result| GCS
+    Worker -->|Update Status| FS
     API -->|Signed URL| GCS
+```
 
-    ESO -->|Sync| SM
-    ESO -->|Create| K8sSecret
-    CSS -->|Auth via WI| SM
-    ES -->|Ref| CSS
-    K8sSecret -.->|API_KEY| API
-    K8sSecret -.->|API_KEY| Worker
+### Platform Components
 
-    KEDA -->|Query Queue Depth| PS
+```mermaid
+graph TB
+    subgraph GitHub
+        BackendRepo[krai-backend]
+        FrontendRepo[krai-frontend]
+        GitOps[krai-gitops]
+    end
+
+    subgraph GKE Cluster
+        ArgoCD[ArgoCD]
+        ESO[ESO Operator]
+        KEDA[KEDA Operator]
+        API[API Pods<br/>HPA — CPU]
+        Worker[Worker Pods<br/>KEDA — queue depth]
+    end
+
+    subgraph GCP
+        SM[Secret Manager]
+        PS[/Pub/Sub/]
+    end
+
+    BackendRepo -->|CI/CD pushes image tag| GitOps
+    FrontendRepo -->|CI/CD pushes image tag| GitOps
+    GitOps -->|Auto-sync| ArgoCD
+    ArgoCD -->|Deploy| API
+    ArgoCD -->|Deploy| Worker
+
+    SM -->|API_KEY via Workload Identity| ESO
+    ESO -->|K8s Secret| API
+    ESO -->|K8s Secret| Worker
+
+    PS -->|Queue depth| KEDA
     KEDA -->|Scale| Worker
-
-    ArgoCD -->|Sync| GitOps
-    BackendRepo -->|CI/CD| GitOps
-    FrontendRepo -->|CI/CD| GitOps
 ```
 
 ### Export Flow
