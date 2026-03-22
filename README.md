@@ -10,9 +10,7 @@ Async export/import API built with FastAPI + React frontend, deployed on GKE wit
 
 
 
-<img src="media/krai_signin.jpg" alt="Google Sign-In" width="400">
 
-![Dashboard](media/ui1.jpg)
 
 ## Directory Structure
 
@@ -32,6 +30,10 @@ krai/
 ├── Dockerfile                 # Python 3.12-slim, non-root krai user
 └── media/                     # Screenshots for README
 ```
+
+<img src="media/krai_signin.jpg" alt="Google Sign-In" width="400">
+
+![Dashboard](media/ui1.jpg)
 
 ## Architecture
 
